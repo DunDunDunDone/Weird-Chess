@@ -1,0 +1,23 @@
+Baron (Move like a rook, captures like a bishop)
+Baroness (Move like a bishop, captures like a rook)
+Duke (Two king moves)
+Duchess (Two squares diagon., 1 ortho)
+Siege Tower
+Ballista or Catapult (The nearest light squares)
+Cannon (Like normal)
+Elaphant (Like Normal)
+Prince (Moves like bishop or knight)
+Princess (Moves like king or bishop)
+Patrol (Rook sideways, one forwards or backwards)
+Cavalry (Has charge ability)
+Wizard
+Battering Ram
+Count (Moves like a rook but only an odd number of squares, can jump over things on the same color)
+Countess (Moves like a bishop but only an odd number of squares, can jump over things on the same color)
+Jester (Rotates)
+Miners and Checkers
+Chancellor (Rook forward, bishop backwards)
+Spearman (Three foward, two sideways, one back)
+Scouts (Up to Three squares in any direction, pulls the piece behind it)
+Earl (one square to move, two to capture)
+Peasant (One square forward. Captures diagonally backwards, diagonal 2 forward first turn)
