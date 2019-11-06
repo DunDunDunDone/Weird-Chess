@@ -58,6 +58,9 @@ class Piece(pygame.sprite.Sprite, ABC): #
         #self.rect = self.image.get_rect()
         #self.rect.left = 0 # These will be changed when it gets rendered
         #self.rect.top = 0
+
+    def convert_state_to_teams(self, state): # Todo: Document
+        return [[(0 if (not pc) else pc.team) for pc in col] for col in state]
     
     @abstractmethod
     def get_legal_moves(self, state, turn = None):
@@ -76,7 +79,7 @@ class Piece(pygame.sprite.Sprite, ABC): #
         returns:
             A list of tuples representing legal moves"""
         legal_moves = []
-        for col in range(x+1, min(x+1+attack_range, len(state))):#min(attack_range, len(state))): #Finds squares to the right
+        for col in range(x+1, min(x+1+attack_range, len(state))):#min(attack_range, len(state))): #Finds squares to the right # Todo x, y -> col, row
             if state[col][y]: #Checks for a piece of any kind
                 if state[col][y] == self.team:
                     break #Rooks can't jump and can't capture their own pieces
@@ -262,7 +265,7 @@ class Piece(pygame.sprite.Sprite, ABC): #
         self.kill()
         return state
 
-    def draw_piece(self, x, y, scale, sprite_group): # Todo Create scaling
+    def draw_piece(self, x, y, scale, sprite_group):
         """Drwas this piece at x, y scaled up by scale, and adds it to sprite_group"""
         image = pygame.transform.scale(self.images[self.team], (scale, scale))
         self.image = image
@@ -279,3 +282,18 @@ class Piece(pygame.sprite.Sprite, ABC): #
 
     def update(self):
         pass
+
+class MovementComponent:
+    def __init__(self, attack_mode, attack_range):
+        self.attack_mode = attack_mode
+        self.attack_range = attack_range
+
+    @abstractmethod
+    def __call__(self, x, y):
+        pass
+
+class RookUp(MovementComponent):
+    def __call__(self, x, y):
+        pass
+
+

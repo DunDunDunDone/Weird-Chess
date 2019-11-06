@@ -14,6 +14,7 @@ class King(Piece):
         self.can_castle = True        
 
     def get_legal_moves(self, state, x, y, turn = None, last_move = None):
+        state = self.convert_state_to_teams(state)
         if self.can_castle and False: # Todo: Replace False with castling conditions
             pass
         else:
@@ -34,6 +35,7 @@ class Queen(Piece):
         Piece.__init__(self, screen, team, direction)
 
     def get_legal_moves(self, state, x, y, turn = None, last_move = None):
+        state = self.convert_state_to_teams(state)
         return (self.rook_left_right(state, x, y)
                 + self.rook_up(state, x, y)
                 + self.rook_down(state, x, y)
@@ -48,6 +50,7 @@ class Rook(Piece):
         self.can_castle = True
 
     def get_legal_moves(self, state, x, y, turn = None, last_move = None):
+        state = self.convert_state_to_teams(state)
         return (self.rook_left_right(state, x, y)
                 + self.rook_up(state, x, y)
                 + self.rook_down(state, x, y))
@@ -59,6 +62,7 @@ class Bishop(Piece): # This class has all the methods it needs
         Piece.__init__(self, screen, team, direction)
 
     def get_legal_moves(self, state, x, y, turn = None, last_move = None):
+        state = self.convert_state_to_teams(state)
         return (self.diagonal_up(state, x, y)
                 + self.diagonal_down(state, x, y))
 
@@ -69,6 +73,7 @@ class Knight(Piece):
         Piece.__init__(self, screen, team, direction)
 
     def get_legal_moves(self, state, x, y, turn = None, last_move = None):
+        state = self.convert_state_to_teams(state)
         return self.knight_move(state, x, y)
 
 class Pawn(Piece):
@@ -78,6 +83,7 @@ class Pawn(Piece):
         Piece.__init__(self, screen, team, direction)
 
     def get_legal_moves(self, state, x, y, turn = None, last_move = None):
+        state = self.convert_state_to_teams(state)
         if y == len(state[0])-2: # If the pawn is on the second rank (-2 because of indexing)...
             return (self.diagonal_up(state, x, y, attack_range = 1, attack_mode = 1)
                     + self.rook_up(state, x, y, attack_range = 2, attack_mode = 2))

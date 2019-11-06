@@ -13,6 +13,7 @@ class Baron(Piece):
         Piece.__init__(self, screen, team, direction) # Direction not implemented
 
     def get_legal_moves(self, state, x, y, turn = None, last_move = None):
+        state = self.convert_state_to_teams(state)
         return (self.rook_left_right(state, x, y, attack_mode = 2)
                 + self.rook_up(state, x, y, attack_mode = 2)
                 + self.rook_down(state, x, y, attack_mode = 2)
@@ -27,6 +28,7 @@ class Baroness(Piece):
         Piece.__init__(self, screen, team, direction) # Direction not implemented
 
     def get_legal_moves(self, state, x, y, turn = None, last_move = None):
+        state = self.convert_state_to_teams(state)
         return (self.rook_left_right(state, x, y, attack_mode = 1)
                 + self.rook_up(state, x, y, attack_mode = 1)
                 + self.rook_down(state, x, y, attack_mode = 1)
@@ -41,6 +43,7 @@ class Chancellor(Piece):
         Piece.__init__(self, screen, team, direction) # Direction not implemented
 
     def get_legal_moves(self, state, x, y, turn = None, last_move = None):
+        state = self.convert_state_to_teams(state)
         return (self.rook_up(state, x, y)
                 + self.diagonal_down(state, x, y))
 

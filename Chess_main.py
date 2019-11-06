@@ -1,5 +1,6 @@
 import pygame
 from Standard_Pieces import *
+from Controllers import *
 
 pygame.init()
 pieces = {}
@@ -9,26 +10,25 @@ class Illegal_Place_For_Created_Piece(Exception):
         self.msg = "Illegal piece created at " + str(x) + " " + str(y)
 
 class Board:
-
-    pieces = {"rook": Rook} # Converts the name of a piece into the piece object
     
-    def __init__(self, screen, size, square_sprite_group):
+    def __init__(self, screen, cols, rows, square_sprite_group):
         """
         Initialize a board
 
         args:
             screen (screen): screen for the board
-            size (int): number of rows and columns for the board
+            cols, rows (int, int): number of columns and rows for the board
             sprintgroup (group): group for all the squares
         """
-        self.last_move = None
+        self.moves = [] # This stores the move in the form ((Piece, col, row), (Captured Piece (or None), new col, new row))
         self.screen = screen
-        self.state = [[None for i in range(size)] for j in range(size)]  # None for no piece, a piece object if there is
-        self.squares = [[None for i in range(size)] for j in range(size)]  # [x or column], [y or row] #0 is the highest row
+        self.state = [[None for i in range(rows)] for j in range(cols)]  # None for no piece, a piece object if there is
+        self.squares = [[None for i in range(rows)] for j in range(cols)]  # [x or column], [y or row] #0 is the highest row
 
         #Begin of test code#
         #king = King(1)
         #End of test code#
+        size = max(cols, rows)
         
         if screen.get_width() == screen.get_height():
             startx, starty = 0, 0
@@ -40,11 +40,23 @@ class Board:
             startx, starty = (screen.get_height()-screen.get_width())/2, 0  # This is the starting x and y position for the first square
             square_size = screen.get_width()/size
         
-        for i in range(size):
-            for j in range(size): #screen.get_width()
+        for i in range(cols):
+            for j in range(rows): #screen.get_width()
                 x = square((startx + i*square_size, starty + j*square_size), square_size, screen, (DARKTAN if ((i+j)%2 == 1) else TAN), square_sprite_group)
                 self.squares[i][j] = x #DrawSqures
         #Setup Board
+
+    def __str__(self): # Redo with better iteration
+        total_string = (7*len(self.state))*'-'+"---\n"
+        for row in range(len(self.state[0])):
+            for col in range(len(self.state)):
+                if self.state[col][row]:
+                    total_string += ' | ' + str(self.state[col][row])[0:3]+str(self.state[col][row].team)
+                else:
+                    total_string += ' | ' + "    "
+            total_string += ' | \n---'+(7*len(self.state))*'-'+'\n'
+        return total_string + '\n\n\n\n\n'
+                    
 
     def convert_board_state_to_teams(self, num): # Redocument
         """
@@ -116,9 +128,12 @@ class Board:
                     new_new_board[col_num][height-row_num] = row
         return new_new_board
 
-    def rotate_coordinates(self, pos, num):
-        for i in range(num):
-            pos = (pos[1], len(self.state)-pos[0]-1)
+    def rotate_coordinates(self, pos, num): # Todo: Document
+        for rotations_done in range(num):
+            if rotations_done%2 == 1:
+                pos = (pos[1], len(self.state[0])-pos[0]-1)
+            else:
+                pos = (pos[1], len(self.state)-pos[0]-1)
         return pos
 
     def make_new_board(self, width, height): # Todo Use
@@ -143,10 +158,10 @@ class Board:
             1 if the move is legal and was made, 0 otherwise"""
         selected_piece = self.get_piece(col, row)
         initial_pos = self.rotate_coordinates((col, row), selected_piece.get_rotations()) # Rotates piece coordinates before checking if it's legal
-        new_pos = self.rotate_coordinates((newcol, newrow), selected_piece.get_rotations())
-        if new_pos in selected_piece.get_legal_moves(self.convert_board_state_to_teams(selected_piece.get_rotations()), initial_pos[0], initial_pos[1]):
+        new_pos = self.rotate_coordinates((newcol, newrow), selected_piece.get_rotations()) # Change to newcol, newrow if possible Check before changing since I believe it ruins turn storing
+        if new_pos in selected_piece.get_legal_moves(self.rotate_board(selected_piece.get_rotations()), initial_pos[0], initial_pos[1]):
             try:
-                self.last_move = (col, row, newcol, newrow) # Todo Change this so it works
+                self.moves.append(((col, row, self.get_piece(col, row)), (newcol, newrow, self.get_piece(newcol, newrow)))) # Todo Change this so it works
                 self.state = selected_piece.make_move(self.rotate_board(selected_piece.get_rotations()), initial_pos[0], initial_pos[1], new_pos[0], new_pos[1])
                 self.state = self.rotate_board(4-selected_piece.get_rotations()) # Unrotates board
                 return (1, None)
@@ -161,9 +176,26 @@ class Board:
                 self.create_piece(Queen, new_pos[0], new_pos[1], err.piece.team, err.piece.direction, piece_sprites) # Todo: Change Sprite_group to class sprite_group don't hardcode
                 self.state = self.rotate_board(4-selected_piece.get_rotations()) # Unrotates board
                 return (1, err)
-                
+
         else:
             return (0, None)
+
+    def undo(self):
+        """Undoes the last move. Returns 1 if successful and 0 otherwise"""
+        try:
+            moved_piece_data, captured_piece_data = self.moves.pop(-1)
+            if self.state[moved_piece_data[0]][moved_piece_data[1]]:
+                self.state[moved_piece_data[0]][moved_piece_data[1]].kill()
+            if self.state[captured_piece_data[0]][captured_piece_data[1]]:
+                self.state[captured_piece_data[0]][captured_piece_data[1]].kill()
+            self.state[moved_piece_data[0]][moved_piece_data[1]] = moved_piece_data[2]
+            self.state[captured_piece_data[0]][captured_piece_data[1]] = captured_piece_data[2]
+            return 1
+        except IndexError:
+            print('No moves to undo')
+            return 0
+
+
 
 class square(pygame.sprite.Sprite):
     def __init__(self, pos, size, screen, color, sprite_group):
@@ -249,75 +281,6 @@ class TurnMarker(pygame.sprite.Sprite):
     def update(self):
         pass
 
-class Controller:
-    """The controller converts screen events to moves on the board"""
-    """Keeps track of turns and win conditions. Handles clicks and events"""
-    def __init__(self, board, mode):
-        self.turn = 1 #1 means white's, 0 for black
-        self.board = board
-        self.selected_piece = None
-        self.selected_pos = None
-        self.turn = 0 # 1 for white, 2 for black, 3 for ...
-        self.turn_marker = TurnMarker(500, 0, 1, {1: (255, 255, 255), 2: (0, 0, 0)}, GUI_sprites)
-                                      
-        #raise NotImplemented
-        self.set_up()
-
-
-    def click_responder(self, x, y): # Todo: Implement or refactor
-        """
-        Responds to a click at x, y
-        
-        args:
-            x, y (int): position of click on the board"""
-        #print(self.selected_piece)
-        for sqrx, col in enumerate(self.board.squares):
-            for sqry, sqr in enumerate(col):
-                sqr.unhighlight() # Anything that's highlighted won't be after a click 
-                if sqr.rect.collidepoint(x,y):
-                    piece = self.board.state[sqrx][sqry] # Todo: Add highlighting in
-                    if self.selected_piece == None:
-                        self.selected_piece = piece
-                        self.selected_pos = (sqrx, sqry)
-                        if self.selected_piece:
-                            sqr.highlight()
-                    elif self.selected_piece == piece:
-                        self.selected_piece = None
-                        self.selected_pos = None
-                    else: 
-                        if self.selected_piece.team == self.turn%2+1:
-                            success, err = self.board.move_piece(self.selected_pos[0], self.selected_pos[1], sqrx, sqry)
-                            self.turn += success
-                            self.board.render_board()
-                            self.selected_piece = None
-                            self.selected_pos = None
-                            self.turn_marker.change_turn((self.turn)%2+1)
-                        else:
-                            print("Illegal Move")
-                            self.selected_piece = None
-                            self.selected_pos = None
-
-    def set_up(self):
-        for col in range(8):
-            self.board.create_piece(Pawn, col, 1, 2, "S", piece_sprites)
-        self.board.create_piece(Baron, 0, 0, 2, "S", piece_sprites)
-        self.board.create_piece(Baron, 7, 0, 2, "S", piece_sprites)
-        self.board.create_piece(Baroness, 2, 0, 2, "S", piece_sprites)
-        self.board.create_piece(Baroness, 5, 0, 2, "S", piece_sprites)
-        self.board.create_piece(Knight, 1, 0, 2, "S", piece_sprites)
-        self.board.create_piece(Chancellor, 3, 0, 2, "S", piece_sprites)
-        self.board.create_piece(King, 4, 0, 2, "S", piece_sprites)
-        self.board.create_piece(Knight, 6, 0, 2, "S", piece_sprites)
-        for col in range(8):
-            self.board.create_piece(Pawn, col, 6, 1, "N", piece_sprites)
-        self.board.create_piece(Baron, 0, 7, 1, "N", piece_sprites)
-        self.board.create_piece(Baron, 7, 7, 1, "N", piece_sprites)
-        self.board.create_piece(Baroness, 2, 7, 1, "N", piece_sprites)
-        self.board.create_piece(Baroness, 5, 7, 1, "N", piece_sprites)
-        self.board.create_piece(Knight, 1, 7, 1, "N", piece_sprites)
-        self.board.create_piece(Chancellor, 3, 7, 1, "N", piece_sprites)
-        self.board.create_piece(King, 4, 7, 1, "N", piece_sprites)
-        self.board.create_piece(Knight, 6, 7, 1, "N", piece_sprites)
                     
 
 
@@ -332,9 +295,10 @@ BLUE = (0, 0, 230)
 TAN = (239, 217, 183)
 DARKTAN = (180, 136, 102)
 BLUEGRAY = (20, 30, 50)
-board_size = 8
-width = round(600/board_size)*board_size # Makes the screen size mimic the board size more closely
-height = round(600/board_size)*board_size
+board_cols = 8
+board_rows = 8
+width = round(600/board_cols)*board_cols # Makes the screen size mimic the board size more closely
+height = round(600/board_rows)*board_rows
 
 screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption("Chess")
@@ -349,25 +313,12 @@ game = True
 sprites = pygame.sprite.Group()
 piece_sprites = pygame.sprite.Group()
 GUI_sprites = pygame.sprite.Group()
-curboard = Board(screen, board_size, sprites)
-game_controller = Controller(curboard, None)
+curboard = Board(screen, board_cols, board_rows, sprites)
+game_controller = Controller(curboard, None, GUI_sprites, piece_sprites)
 
 
 #curboard.create_piece(piece, col, row, team, direction, sprite_group)
-'''curboard.create_piece(Chancellor, 1, 4, 2, "S", piece_sprites) # Test code
-curboard.create_piece(Chancellor, 1, 5, 1, "N", piece_sprites)
-curboard.create_piece(Baroness, 0, 0, 2, "N", piece_sprites)
-curboard.create_piece(Baroness, 0, 1, 1, "N", piece_sprites)
-curboard.create_piece(Bishop, 4, 3, 1, "W", piece_sprites)
-curboard.create_piece(Knight, 4, 4, 1, "N", piece_sprites)
-curboard.create_piece(Baron, 5, 5, 2, "N", piece_sprites)
-curboard.create_piece(Queen, 1, 1, 1, "E", piece_sprites)
-curboard.create_piece(Queen, 2, 2, 2, "N", piece_sprites)
-curboard.create_piece(Pawn, 2, 4, 2, "N", piece_sprites)
-curboard.create_piece(Pawn, 3, 5, 1, "E", piece_sprites)
-curboard.create_piece(King, 3, 4, 1, "N", piece_sprites)
-curboard.create_piece(Rook, 1, 0, 1, "S", piece_sprites)
-curboard.create_piece(King, 3, 3, 2, "N", piece_sprites)'''
+
 
 while not closed: # Todo: Implement or refactor
     if game:
@@ -379,8 +330,8 @@ while not closed: # Todo: Implement or refactor
                 x,y = event.pos
                 game_controller.click_responder(x, y)
             if event.type == pygame.KEYDOWN:
-                pass
-
+                game_controller.undo_last_move()
+                
     screen.blit(background, (0, 0))
     sprites.clear(screen, background)
     piece_sprites.clear(screen, background)
@@ -402,3 +353,5 @@ pygame.quit()
 ### Tetris chess
 ### Create documentation for everything
 ### Consider a component based architecture
+### Document
+### Merge Board Method
