@@ -7,10 +7,15 @@ from math import *
 
 class Baron(Piece):
     images = {1:pygame.image.load('baron.png'), 2: pygame.image.load('black_baron.png')}
-
-    
+    #movement_components = [RookLeftRight(state, x, y, attack_mode = 2),
+    #                       + self.rook_up(state, x, y, attack_mode = 2),
+    #                       + self.rook_down(state, x, y, attack_mode = 2),
+    #                       + self.diagonal_up(state, x, y, attack_mode = 1),
+    #                       + self.diagonal_down(state, x, y, attack_mode = 1)]
+                
     def __init__(self, screen, team, direction): #Needs to be implemented later
         Piece.__init__(self, screen, team, direction) # Direction not implemented
+        self.can_castle = True
 
     def get_legal_moves(self, state, x, y, turn = None, last_move = None):
         state = self.convert_state_to_teams(state)

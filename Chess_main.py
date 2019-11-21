@@ -346,12 +346,14 @@ while not closed: # Todo: Implement or refactor
 
 pygame.quit()
 
+
 ### TODO make event loop seperate
 ### Check style with flake8
 ### Immutable Pieces Literally doesn't make sense because castling
 ### Separate into more files
 ### Tetris chess
 ### Create documentation for everything
-### Consider a component based architecture
 ### Document
 ### Merge Board Method
+### Revamp undo
+### Target Highlight
