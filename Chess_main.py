@@ -25,9 +25,6 @@ class Board:
         self.state = [[None for i in range(rows)] for j in range(cols)]  # None for no piece, a piece object if there is
         self.squares = [[None for i in range(rows)] for j in range(cols)]  # [x or column], [y or row] #0 is the highest row
 
-        #Begin of test code#
-        #king = King(1)
-        #End of test code#
         size = max(cols, rows)
         
         if screen.get_width() == screen.get_height():
@@ -76,6 +73,11 @@ class Board:
             for piece, sqr in zip(sqrs, col):
                 if piece:
                     sqr.render_piece(piece, piece_sprites)
+
+    def unhighlight_all_squares(self):
+        for col in self.squares: # Redo with better iteration
+            for sqr in col:
+                sqr.unhighlight()
 
     def get_piece(self, col, row): # Todo: use
         """
@@ -195,9 +197,13 @@ class Board:
             print('No moves to undo')
             return 0
 
-
-
 class square(pygame.sprite.Sprite):
+    base_target_coordinates = (((0, 0), (0.20, 0), (0, 0.20)),
+                               ((0, 1), (0, .80), (.20, 1.00)),
+                               ((.80, 0), (1.00, 0), (1.00, .20)),
+                               ((1.00, 1.00), (1.00, .80), (.80, 1.00)))
+    # This is a tuple containg triplets of points for drawing the target highlight. It should be scaled based on self.r
+    
     def __init__(self, pos, size, screen, color, sprite_group):
         """
         Creates a board square for holding chess pieces
@@ -219,6 +225,8 @@ class square(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.left = pos[0]
         self.rect.top = pos[1]
+        # Scales the coordinates for target highlight
+        self.target_coordinates = tuple(map(lambda trip: tuple(map(lambda coord: (coord[0]*self.r, coord[1]*self.r), trip)), self.base_target_coordinates))
         
         sprite_group.add(self)
 
@@ -233,55 +241,21 @@ class square(pygame.sprite.Sprite):
         piece.draw_piece(self.rect.left, self.rect.top, int(self.r), piece_sprites)
 
 
-    def highlight(self): # Todo: Implement
+    def highlight(self):
+        """Highlights this square by changing the background to blue-gray"""
         self.image.fill(BLUEGRAY)
-        ###HIGHLIGHT THIS SQUARE###
-        #square.highlighted = self
 
     def unhighlight(self): # Todo: Implement
         self.image.fill(self.color) #Unhighlights duh
 
     def dot_highlight(self): # Todo: Implement
-        print("dot highlighted")
-        pass #Puts a small dot as an indicator
+        """Highlights this square by putting a blue-gray dot in the center"""
+        pygame.draw.circle(self.image, BLUEGRAY, (int(self.r/2), int(self.r/2)), int(self.r/14))
+        #print("dot highlighted") 
 
-class TurnMarker(pygame.sprite.Sprite):
-    """
-    This is a marker that can change color when the turn changes"""
-    def __init__(self, x, y, start_team, team_to_color, sprite_group):
-        """
-        args:
-            x, y (ints): Screen position for marker
-            start_team (int): Initial team
-            team_to_color (dict, int: (r, g, b, trans)): Turns team numbers into colors
-            sprite_group (group): Sprite group to be added to"""
-        self.team = start_team
-        self.team_to_color_dict = team_to_color
-
-        pygame.sprite.Sprite.__init__(self)
-        self.color = (255, 255, 255, 255)
-        self.bgcolor = (0, 0, 0, 0)
-        self.image = pygame.Surface((100, 100), pygame.SRCALPHA, 32)
-        self.image.fill(self.bgcolor)
-        pygame.draw.circle(self.image, self.color, (85, 15), 10, 0)
-        # Sets bg color as transparent!
-
-        self.rect = self.image.get_rect()
-        self.rect.left = x
-        self.rect.top = y
-
-        sprite_group.add(self)
-
-    def change_turn(self, team):
-        self.team = team
-        self.image.fill((255,255,255,0))
-        self.color = self.team_to_color_dict[self.team]
-        pygame.draw.circle(self.image, self.color, (85, 15), 10, 0)
-
-    def update(self):
-        pass
-
-                    
+    def target_highlight(self):
+        for tri in self.target_coordinates:
+            pygame.draw.polygon(self.image, BLUEGRAY, tri)
 
 
 BLACK = (0, 0, 0)

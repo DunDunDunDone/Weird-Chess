@@ -52,16 +52,15 @@ class Controller: # Todo: Make controller inherit
         self.set_up(piece_sprites)
 
 
-    def click_responder(self, x, y): # Todo: Implement or refactor
+    def click_responder(self, x, y): # Todo:  or refactor to include fewer references to squares
         """
         Responds to a click at x, y
         
         args:
             x, y (int): position of click on the board"""
-        #print(self.selected_piece)
-        for sqrx, col in enumerate(self.board.squares):
+        self.board.unhighlight_all_squares() # Anything that's highlighted won't be after a click 
+        for sqrx, col in enumerate(self.board.squares): # Redo with better iteration
             for sqry, sqr in enumerate(col):
-                sqr.unhighlight() # Anything that's highlighted won't be after a click 
                 if sqr.rect.collidepoint(x,y):
                     piece = self.board.state[sqrx][sqry] # Todo: Add highlighting in
                     if self.selected_piece == None:
@@ -69,6 +68,11 @@ class Controller: # Todo: Make controller inherit
                         self.selected_pos = (sqrx, sqry)
                         if self.selected_piece:
                             sqr.highlight()
+                            for move in self.selected_piece.get_legal_moves(self.board.state, sqrx, sqry): # There's some rotation issue so this should be in board
+                                if self.board.state[move[0]][move[1]]: # Todo: Define var for board.state
+                                    self.board.squares[move[0]][move[1]].target_highlight()
+                                else:
+                                    self.board.squares[move[0]][move[1]].dot_highlight()
                     elif self.selected_piece == piece:
                         self.selected_piece = None
                         self.selected_pos = None
@@ -116,6 +120,8 @@ class Controller: # Todo: Make controller inherit
         self.board.render_board() # Bring into controller class
         self.turn_marker.change_turn((self.turn)%2+1)
 
+#Todo: Update
+'''
 class DegenerateController: # Needs to be updated
     """The controller converts screen events to moves on the board"""
     """Keeps track of turns and win conditions. Handles clicks and events"""
@@ -178,3 +184,4 @@ class DegenerateController: # Needs to be updated
         self.board.create_piece(Knight, 2, 7, 1, "N", piece_sprites)
         self.board.create_piece(King, 0, 7, 1, "N", piece_sprites)
                     
+'''
