@@ -7,52 +7,26 @@ from math import *
 
 class Baron(Piece):
     images = {1:pygame.image.load('baron.png'), 2: pygame.image.load('black_baron.png')}
-    #movement_components = [RookLeftRight(state, x, y, attack_mode = 2),
-    #                       + self.rook_up(state, x, y, attack_mode = 2),
-    #                       + self.rook_down(state, x, y, attack_mode = 2),
-    #                       + self.diagonal_up(state, x, y, attack_mode = 1),
-    #                       + self.diagonal_down(state, x, y, attack_mode = 1)]
+    movement_components = [RookUp(float("inf"), 2),
+                           RookDown(float("inf"), 2),
+                           DiagonalUp(float("inf"), 1),
+                           DiagonalDown(float("inf"), 1),
+                           RookLeftRight(float("inf"), 2)]
                 
     def __init__(self, screen, team, direction): #Needs to be implemented later
         Piece.__init__(self, screen, team, direction) # Direction not implemented
         self.can_castle = True
 
-    def get_legal_moves(self, state, x, y, turn = None, last_move = None):
-        state = self.convert_state_to_teams(state)
-        return (self.rook_left_right(state, x, y, attack_mode = 2)
-                + self.rook_up(state, x, y, attack_mode = 2)
-                + self.rook_down(state, x, y, attack_mode = 2)
-                + self.diagonal_up(state, x, y, attack_mode = 1)
-                + self.diagonal_down(state, x, y, attack_mode = 1))
 
 class Baroness(Piece):
     images = {1:pygame.image.load('baroness.png'), 2: pygame.image.load('black_baroness.png')}
-
+    movement_components = [RookUp(float("inf"), 1),
+                           RookDown(float("inf"), 1),
+                           DiagonalUp(float("inf"), 2),
+                           DiagonalDown(float("inf"), 2),
+                           RookLeftRight(float("inf"), 1)]
     
-    def __init__(self, screen, team, direction): #Needs to be implemented later
-        Piece.__init__(self, screen, team, direction) # Direction not implemented
-
-    def get_legal_moves(self, state, x, y, turn = None, last_move = None):
-        state = self.convert_state_to_teams(state)
-        return (self.rook_left_right(state, x, y, attack_mode = 1)
-                + self.rook_up(state, x, y, attack_mode = 1)
-                + self.rook_down(state, x, y, attack_mode = 1)
-                + self.diagonal_up(state, x, y, attack_mode = 2)
-                + self.diagonal_down(state, x, y, attack_mode = 2))
-
 class Chancellor(Piece):
     images = {1:pygame.image.load('chancellor.png'), 2: pygame.image.load('black_chancellor.png')}
-
-    
-    def __init__(self, screen, team, direction): #Needs to be implemented later
-        Piece.__init__(self, screen, team, direction) # Direction not implemented
-
-    def get_legal_moves(self, state, x, y, turn = None, last_move = None):
-        state = self.convert_state_to_teams(state)
-        return (self.rook_up(state, x, y)
-                + self.diagonal_down(state, x, y))
-
-
-
-
-
+    movement_components = [RookUp(float("inf"), 0),
+                           DiagonalDown(float("inf"), 0)]

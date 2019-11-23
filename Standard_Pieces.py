@@ -10,11 +10,11 @@ class King(Piece):
     images = {1:pygame.image.load('king.png'), 2: pygame.image.load('black_king.jpg')}
 
     movement_components = [Castle(),
-                           RookUp(0, 1),
-                           RookDown(0, 1),
-                           RookLeftRight(0, 1),
-                           DiagonalUp(0, 1),
-                           DiagonalDown(0, 1)]
+                           RookUp(1, 0),
+                           RookDown(1, 0),
+                           RookLeftRight(1, 0),
+                           DiagonalUp(1, 0),
+                           DiagonalDown(1, 0)]
     
     def __init__(self, screen, team, direction): #Needs to be implemented later
         Piece.__init__(self, screen, team, direction) # Direction not implemented
@@ -71,21 +71,18 @@ class King(Piece):
 class Queen(Piece):
     images = {1:pygame.image.load('queen.png'), 2: pygame.image.load('black_queen.jpg')}
     
-    movement_components = [RookUp(0, float("inf")),
-                           RookDown(0, float("inf")),
-                           DiagonalUp(0, float("inf")),
-                           DiagonalDown(0, float("inf")),
-                           RookLeftRight(0, float("inf"))]
-    
-    def __init__(self, screen, team, direction):
-        Piece.__init__(self, screen, team, direction)
+    movement_components = [RookUp(float("inf"), 0),
+                           RookDown(float("inf"), 0),
+                           DiagonalUp(float("inf"), 0),
+                           DiagonalDown(float("inf"), 0),
+                           RookLeftRight(float("inf"), 0)]
 
 class Rook(Piece):
     images = {1:pygame.image.load('rook.jpg'), 2: pygame.image.load('black_rook.jpg')}
 
-    movement_components = [RookUp(0, float("inf")),
-                           RookDown(0, float("inf")),
-                           RookLeftRight(0, float("inf"))]
+    movement_components = [RookUp(float("inf"), 0),
+                           RookDown(float("inf"), 0),
+                           RookLeftRight(float("inf"), 0)]
     
     def __init__(self, screen, team, direction):
         Piece.__init__(self, screen, team, direction)
@@ -93,23 +90,17 @@ class Rook(Piece):
 
 class Bishop(Piece): # This class has all the methods it needs
     images = {1:pygame.image.load('bishop.jpg'), 2: pygame.image.load('black_bishop.jpg')}
-    movement_components = [DiagonalUp(0, float("inf")),
-                           DiagonalDown(0, float("inf"))]
-    
-    def __init__(self, screen, team, direction):
-        Piece.__init__(self, screen, team, direction)
+    movement_components = [DiagonalUp(float("inf"), 0),
+                           DiagonalDown(float("inf"), 0)]
 
 class Knight(Piece):
     images = {1:pygame.image.load('knight.png'), 2: pygame.image.load('black_knight.png')}
-    movement_components = [KnightMove(0, 0)]
-    
-    def __init__(self, screen, team, direction):
-        Piece.__init__(self, screen, team, direction)
+    movement_components = [KnightMove()]
 
 
 class Pawn(Piece):
     images = {1:pygame.image.load('pawn.png'), 2: pygame.image.load('black_pawn.png')}
-    movement_components = [DiagonalUp(1, 1), RookUp(2, 1), Charge(2, 2, 6)] # Todo: Change pawn to not be hardcoded
+    movement_components = [DiagonalUp(1, 1), RookUp(1, 2), Charge(2, 2, 6)] # Todo: Change pawn to not be hardcoded
     
     def __init__(self, screen, team, direction):
         Piece.__init__(self, screen, team, direction)
