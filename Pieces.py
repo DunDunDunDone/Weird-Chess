@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod #abstract base classes
+from collections.abc import MutableMapping
 #from abc import *
 import pygame
 from math import *
@@ -34,8 +35,9 @@ class KingCaptured(Exception):
 
 
 class Piece(pygame.sprite.Sprite, ABC): #
-    '''This class holds all the data about a chess piece'''
+    '''This class holds all the data for a generic chess piece'''
     '''To be coded using the code for bishops and rooks'''
+    '''It can be indexed to get its various attributes. It will return 0 if there's nothing'''
     elephant_disp = ((2, 2), (-2, -2), (2, -2), (-2, 2)) # Holds the elephant displacement
     movement_components = ()
     knight_disp = ((2, 1), (1, 2), (-2, 1), (-1, 2), (2, -1), (1, -2), (-2, -1), (-1, -2))
@@ -43,12 +45,13 @@ class Piece(pygame.sprite.Sprite, ABC): #
     
     direction_to_rotation = {"N": 0, "E": 1, "S": 2, "W": 3}
     
-    def __init__(self, screen, team, direction): #Remove i and j # Todo Remove x and y since the board knows that
+    def __init__(self, screen, team, direction, attributes = {"castle": False, "en passant": False}): #Remove i and j # Todo Remove x and y since the board knows that
         # Direction will be N, S, E, or W
         self.team = team #1 for white, 2 for black # TODO Rewrite comments and use row, col for board positions and x, y for pixel pos
         self.direction = direction
-        self.can_castle = False # Will be changed after first move # Todo: Implement or refactor
-        self.can_en_passant = False # Is this piece capable of en passant in general # Todo: Implement or refactor # This should stay outside compenets
+        self.attributes = attributes # This dictionary holds all the attributes for a piece (castling, en passant, etc.).
+        # Stylistically, this should just be the name of the move
+        #   An entry might look like "castle: False" 
 
         pygame.sprite.Sprite.__init__(self) # Todo: Document
         self.screen = screen
@@ -66,11 +69,14 @@ class Piece(pygame.sprite.Sprite, ABC): #
     def get_legal_moves(self, state, x, y, turn = None):
         '''The state of the board (0 for empty, 1 for white piece, 2 for black piece) and turn (first turn is 1)'''
         '''Returns a list of tuples'''
-        return reduce(add, [comp(state, x, y, self) for comp in self.movement_components])
+        return reduce(add, [comp(state, x, y, self) for comp in self.movement_components], [])
                 
     def __str__(self):
         """Returns the piece name"""
         return type(self).__name__
+
+    def __copy__(self):
+        return type(self)(self.screen, self.team, self.direction, self.attributes)
 
     def make_move(self, state, col, row, newcol, newrow): # Todo: Implement or refactor (Refactor in King too)
         """Moves a piece from col, row to newcol, newrow
@@ -91,7 +97,7 @@ class Piece(pygame.sprite.Sprite, ABC): #
         if not ((newcol, newrow) in self.get_legal_moves(state, col, row)):
             raise IllegalMove(self)
         else:
-            self.can_castle = False # Should be changed eventually
+            self.attributes["castle"] = False # Should be changed eventually
             new_state = self.board_deep_copy(state)
             new_state[col][row] = None
             captured_piece = new_state[newcol][newrow]
@@ -105,7 +111,7 @@ class Piece(pygame.sprite.Sprite, ABC): #
         """Returns a deep copy of state"""
         return [[x for x in col] for col in state]
 
-    def get_rotations(self): # Todo: Document
+    def get_rotations(self): # Todo: Document, maybe merge with general indexing
         """Gets the number of counterclockwise rotations of the board so this piece can move properly"""
         return self.direction_to_rotation[self.direction] # Based on direction
 
@@ -133,6 +139,8 @@ class Piece(pygame.sprite.Sprite, ABC): #
 
     def update(self):
         pass
+
+        # Below are all the code that allows for accessing the various state attributes of a piece
 
 def multiply_by_sign(n1, n2):
     """Returns n1 multiplied by the sign of n2 (for 0 it remains the same)"""
@@ -349,16 +357,16 @@ class Castle(MovementComponent):
 
     def __call__(self, state, x, y, piece): # Todo Check for check
         legal_moves = []
-        if not piece.can_castle:
+        if not piece.attributes["castle"]:
             return []
         for cur_piece in (col[y] for col in state[x+1:]): # Castle right code
             if cur_piece:
-                if piece.team == cur_piece.team and cur_piece.can_castle:
+                if piece.team == cur_piece.team and cur_piece.attributes["castle"]:
                     legal_moves.append((x+2, y))
                 break
-        for cur_piece in (col[y] for col in state[:x]): # Castle left code
+        for cur_piece in (col[y] for col in state[x-1::-1]): # Castle left code
             if cur_piece:
-                if piece.team == cur_piece.team and cur_piece.can_castle:
+                if piece.team == cur_piece.team and cur_piece.attributes["castle"]:
                     legal_moves.append((x-2, y))
                 break
         return legal_moves

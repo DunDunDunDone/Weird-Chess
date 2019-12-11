@@ -15,7 +15,7 @@ class Baron(Piece):
                 
     def __init__(self, screen, team, direction): #Needs to be implemented later
         Piece.__init__(self, screen, team, direction) # Direction not implemented
-        self.can_castle = True
+        self.attributes["castle"] = True
 
 
 class Baroness(Piece):

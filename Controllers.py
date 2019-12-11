@@ -48,7 +48,6 @@ class Controller: # Todo: Make controller inherit
         self.turn = 0 # 1 for white, 2 for black, 3 for ...
         self.turn_marker = TurnMarker(500, 0, 1, {1: (255, 255, 255), 2: (0, 0, 0)}, GUI_sprites)
                                       
-        #raise NotImplemented
         self.set_up(piece_sprites)
 
 
@@ -64,11 +63,15 @@ class Controller: # Todo: Make controller inherit
                 if sqr.rect.collidepoint(x,y):
                     piece = self.board.state[sqrx][sqry] # Todo: Add highlighting in
                     if self.selected_piece == None:
+                        if piece and piece.team%2 != (self.turn+1)%2 and False:#Todo: Fix later. Remove false for different piece selection
+                            break
                         self.selected_piece = piece
                         self.selected_pos = (sqrx, sqry)
                         if self.selected_piece:
                             sqr.highlight()
-                            for move in self.selected_piece.get_legal_moves(self.board.state, sqrx, sqry): # There's some rotation issue so this should be in board
+                            sqrx, sqry = self.board.rotate_coordinates((sqrx, sqry), self.selected_piece.get_rotations()) # Todo: Clean all this up
+                            for move in self.selected_piece.get_legal_moves(self.board.rotate_board(self.selected_piece.get_rotations()), sqrx, sqry): # There's some rotation issue so this should be in board
+                                move = self.board.rotate_coordinates(move, self.selected_piece.get_rotations())
                                 if self.board.state[move[0]][move[1]]: # Todo: Define var for board.state
                                     self.board.squares[move[0]][move[1]].target_highlight()
                                 else:
@@ -110,9 +113,15 @@ class Controller: # Todo: Make controller inherit
         self.board.create_piece(Chancellor, 3, 7, 1, "N", piece_sprites)
         self.board.create_piece(King, 4, 7, 1, "N", piece_sprites)
         self.board.create_piece(Knight, 6, 7, 1, "N", piece_sprites)
+        self.board.create_piece(EmptySquare, 2, 3, 1, "N", piece_sprites)
+        self.board.create_piece(EmptySquare, 2, 4, 1, "N", piece_sprites)
+        self.board.create_piece(EmptySquare, 5, 3, 1, "N", piece_sprites)
+        self.board.create_piece(EmptySquare, 5, 4, 1, "N", piece_sprites)
+        
+        
 
     def undo_last_move(self):
-        
+        self.board.unhighlight_all_squares()
         if self.board.undo():
             self.selected_piece = None
             self.selected_pos = None

@@ -26,14 +26,14 @@ class Board:
         self.squares = [[None for i in range(rows)] for j in range(cols)]  # [x or column], [y or row] #0 is the highest row
 
         size = max(cols, rows)
-        
+
         if screen.get_width() == screen.get_height():
-            startx, starty = 0, 0
-            square_size = screen.get_width()/size
-        elif screen.get_width() > screen.get_height():
+            startx, starty = 0, 0 # This is the starting position for the first square
+            square_size = screen.get_width()/size # This makes the square size fit the screen size
+        elif screen.get_width() > screen.get_height(): # This looks kind of broken
             startx, starty = (screen.get_width()-screen.get_height())/2, 0
             square_size = screen.get_height()/size
-        elif screen.get_width() < screen.get_height():
+        elif screen.get_width() < screen.get_height(): # This looks kind of broken
             startx, starty = (screen.get_height()-screen.get_width())/2, 0  # This is the starting x and y position for the first square
             square_size = screen.get_width()/size
         
@@ -43,7 +43,11 @@ class Board:
                 self.squares[i][j] = x #DrawSqures
         #Setup Board
 
-    def __str__(self): # Redo with better iteration
+    def __str__(self): # Todo: Redo with better iteration
+        """
+        returns:
+            A string designed to be printed in the shell for debugging purposes.
+                Do NOT use in actual code!"""
         total_string = (7*len(self.state))*'-'+"---\n"
         for row in range(len(self.state[0])):
             for col in range(len(self.state)):
@@ -57,12 +61,12 @@ class Board:
 
     def convert_board_state_to_teams(self, num): # Redocument
         """
-        Converts this board's state into the just the teams
-
+        Converts this board's state into the just the teams (0 for no piece)
+        args:
+            num (int): The number of rotations to rotate the board before getting the teams
         returns:
-            2D array"""
-        rotated_board = self.rotate_board(num)
-        return [[(0 if (not pc) else pc.team) for pc in col] for col in rotated_board]
+            2D array of ints"""
+        return [[(0 if (not pc) else pc.team) for pc in col] for col in self.rotate_board(num)]
 
     def render_board(self):
         """
@@ -75,6 +79,8 @@ class Board:
                     sqr.render_piece(piece, piece_sprites)
 
     def unhighlight_all_squares(self):
+        """
+        Unhighlights all the squares"""
         for col in self.squares: # Redo with better iteration
             for sqr in col:
                 sqr.unhighlight()
@@ -101,8 +107,7 @@ class Board:
             direction ("N", "S", "E", "W"): Direction the piece is facing
             sprite_group (Group): Spritegroup to be added to"""
 
-        if self.get_piece(col, row):
-            raise Illegal_Place_For_Created_Piece(col, row) # Not a real error yet
+        #assert self.get_piece(col, row), "Illegal Place For Created Piece"
         self.state[col][row] = piece(self.screen, team, direction)
         self.squares[col][row].render_piece(self.state[col][row], sprite_group)
         self.render_board()
@@ -130,7 +135,14 @@ class Board:
                     new_new_board[col_num][height-row_num] = row
         return new_new_board
 
-    def rotate_coordinates(self, pos, num): # Todo: Document
+    def rotate_coordinates(self, pos, num):
+        """
+        Rotates pos num counter-clockwise rotations around the center of the board
+        args:
+            pos (tuple of ints): The coordinates to be rotated
+            num (int): The number of rotations counter-clockwise to rotate them
+        returns:
+            The rotated coordinates"""
         for rotations_done in range(num):
             if rotations_done%2 == 1:
                 pos = (pos[1], len(self.state[0])-pos[0]-1)
@@ -179,10 +191,10 @@ class Board:
                 self.state = self.rotate_board(4-selected_piece.get_rotations()) # Unrotates board
                 return (1, err)
 
-        else:
+        else: # This should get documented eventually
             return (0, None)
 
-    def undo(self):
+    def undo(self): # Todo: Document
         """Undoes the last move. Returns 1 if successful and 0 otherwise"""
         try:
             moved_piece_data, captured_piece_data = self.moves.pop(-1)
@@ -297,7 +309,7 @@ game_controller = Controller(curboard, None, GUI_sprites, piece_sprites)
 while not closed: # Todo: Implement or refactor
     if game:
         #rook_image = pygame.image.load(r'C:\Users\user\Pictures\.jpg')
-        for event in pygame.event.get(): 
+        for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 closed = True
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -330,4 +342,3 @@ pygame.quit()
 ### Document
 ### Merge Board Method
 ### Revamp undo
-### Target Highlight

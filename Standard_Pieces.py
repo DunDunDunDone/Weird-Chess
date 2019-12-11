@@ -6,6 +6,24 @@ from math import *
 
 ### This file contains the code for all standard chess pieces ###
 
+class EveryTeam: # Document, Singleton?
+    """This object makes a piece act like it's on every team"""
+    def __eq__(self, x):
+        return True
+
+    def __hash__(self):
+        return 16161616161616161616
+
+    def __mod__(self, x):
+        return 0
+
+class EmptySquare(Piece):
+    images = {EveryTeam():pygame.image.load('black_square.png')}
+    movement_components = []
+    
+    def __init__(self, screen, team, direction):
+        Piece.__init__(self, screen, EveryTeam(), direction)
+
 class King(Piece):
     images = {1:pygame.image.load('king.png'), 2: pygame.image.load('black_king.jpg')}
 
@@ -18,7 +36,7 @@ class King(Piece):
     
     def __init__(self, screen, team, direction): #Needs to be implemented later
         Piece.__init__(self, screen, team, direction) # Direction not implemented
-        self.can_castle = True
+        self.attributes["castle"] = True
 
     def get_captured(self, state, col, row):
         self.kill()
@@ -43,7 +61,7 @@ class King(Piece):
         if not ((newcol, newrow) in self.get_legal_moves(state, col, row)):
             raise IllegalMove(self)
         else:
-            self.can_castle = False # Should be changed eventually
+            self.attributes["castle"] = False # Should be changed eventually
             new_state = self.board_deep_copy(state)
             if abs(col-newcol) == 2: # If you castled, run this
                 delta = int(copysign(1, col-newcol)) #
@@ -51,7 +69,7 @@ class King(Piece):
                 # col, cur_piece in enumerate((col[y] for col in state[x+1:])): # 
                 while 0 <= col_to_check < len(state): # Todo: Change loop to use enumerate
                     piece = state[col_to_check][row]
-                    if piece and piece.can_castle and piece.team == self.team:
+                    if piece and piece.attributes["castle"] and piece.team == self.team:
                         new_state[col][row] = None # Todo: Check for check
                         new_state[col_to_check][row] = None
                         new_state[newcol][newrow] = self
@@ -86,7 +104,7 @@ class Rook(Piece):
     
     def __init__(self, screen, team, direction):
         Piece.__init__(self, screen, team, direction)
-        self.can_castle = True
+        self.attributes["castle"] = True
 
 class Bishop(Piece): # This class has all the methods it needs
     images = {1:pygame.image.load('bishop.jpg'), 2: pygame.image.load('black_bishop.jpg')}
