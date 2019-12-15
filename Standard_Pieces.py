@@ -1,13 +1,18 @@
 from abc import ABC, abstractmethod #abstract base classes
-from Pieces import *
-from Weird_Pieces import *
+from Generic_Piece import *
 import pygame
 from math import *
 
-### This file contains the code for all standard chess pieces ###
+
+"""
+This file contains the code for the standard chess pieces.
+Movement components are added at the beginning of the class
+    by modifying the movement_components variable
+"""
 
 class EveryTeam: # Document, Singleton?
-    """This object makes a piece act like it's on every team"""
+    """This object makes a piece act like it's on every team
+            when the piece's team is set to this object"""
     def __eq__(self, x):
         return True
 
@@ -20,6 +25,9 @@ class EveryTeam: # Document, Singleton?
 class EmptySquare(Piece):
     images = {EveryTeam():pygame.image.load('black_square.png')}
     movement_components = []
+    """
+    This looks like a hole on the board and
+        can't be captured or moved over"""
     
     def __init__(self, screen, team, direction):
         Piece.__init__(self, screen, EveryTeam(), direction)

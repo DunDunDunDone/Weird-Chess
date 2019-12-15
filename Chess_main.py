@@ -1,6 +1,7 @@
 import pygame
 from Standard_Pieces import *
 from Controllers import *
+from copy import *
 
 pygame.init()
 pieces = {}
@@ -39,7 +40,11 @@ class Board:
         
         for i in range(cols):
             for j in range(rows): #screen.get_width()
-                x = square((startx + i*square_size, starty + j*square_size), square_size, screen, (DARKTAN if ((i+j)%2 == 1) else TAN), square_sprite_group)
+                x = square((startx + i*square_size, starty + j*square_size),
+                           square_size,
+                           screen,
+                           (DARKTAN if ((i+j)%2 == 1) else TAN),
+                           square_sprite_group)
                 self.squares[i][j] = x #DrawSqures
         #Setup Board
 
@@ -73,7 +78,7 @@ class Board:
         This method redraws the board with all
             the piece sprites at their current locations
         """
-        for sqrs, col in zip(self.state, self.squares):
+        for sqrs, col in zip(self.state, self.squares): # Todo: Redo with better iteration
             for piece, sqr in zip(sqrs, col):
                 if piece:
                     sqr.render_piece(piece, piece_sprites)
@@ -85,12 +90,28 @@ class Board:
             for sqr in col:
                 sqr.unhighlight()
 
+    def board_iterator(self, board, coords = True):
+        """
+        Takes a 2D array and iterates over it starting at (0, 0), then going to (0, 1), etc.
+        args:
+            board (2d array): Board to be iterated over
+            coords (bool): Setting for result; when set to True the coordinates will be attached to each item
+        return:
+            (col, row, item) if coords otherwise just the items"""
+        if coords:
+            for col_pos, column in enumerate(board): # Redo with better iteration
+                for row_pos, item in enumerate(column):
+                    yield (col_pos, row_pos, item)
+        else:
+            for column in board: # Redo with better iteration
+                for item in column:
+                    yield item
+
     def get_piece(self, col, row): # Todo: use
         """
         args:
             col (int): Column to be checked
             row (int): Row to be checked
-
         return:
             Piece at position col,row otherwise None"""
         return self.state[col][row]
@@ -120,7 +141,12 @@ class Board:
         return [[x for x in col] for col in self.state]
 
     def rotate_board(self, num): # It does this by reflecting over x = y and  y = k # Todo: Implement or refactor
-        """num is the number of 90 degree rotations counter-clockwise""" # Todo: Rework to use less memory
+        """
+        Rotates the board's state
+        args:
+            num (int): Number of 90 degree rotations counter-clockwise
+        returns:
+            The rotated board""" # Todo: Rework to use less memory
         #new_new_board = Use self.make_new_board(len(self.state), len(self.state[0])) # Todo: Rework to be correct. Doesn't change when num changes
         new_new_board = self.get_deep_copy()
         for i in range(num): # Keeo following list comprehension
@@ -161,6 +187,10 @@ class Board:
             2D array containing Nones with the inputed width and height"""
         return [[None for row in range(height)] for col in range(width)]
 
+    def board_change_positions(self, newstate): # Todo: document
+        '''Returns the positions of changes from self.state to newstate'''
+        return tuple([old_pc_data for old_pc_data, new_pc_data in zip(self.board_iterator(self.state), self.board_iterator(newstate)) if not (old_pc_data[2] is new_pc_data[2])])
+
     def move_piece(self, col, row, newcol, newrow): # Todo: Fix
         """
         Moves the piece at col, row to newcol, newrow
@@ -175,9 +205,13 @@ class Board:
         new_pos = self.rotate_coordinates((newcol, newrow), selected_piece.get_rotations()) # Change to newcol, newrow if possible Check before changing since I believe it ruins turn storing
         if new_pos in selected_piece.get_legal_moves(self.rotate_board(selected_piece.get_rotations()), initial_pos[0], initial_pos[1]):
             try:
-                self.moves.append(((col, row, self.get_piece(col, row)), (newcol, newrow, self.get_piece(newcol, newrow)))) # Todo Change this so it works
+                copied_state = [[copy(pc) for pc in col] for col in self.state] # Use deepcopy ??? Todo
+                oldstate = [[pc for pc in col] for col in self.state] # Can't use deepcopy
                 self.state = selected_piece.make_move(self.rotate_board(selected_piece.get_rotations()), initial_pos[0], initial_pos[1], new_pos[0], new_pos[1])
                 self.state = self.rotate_board(4-selected_piece.get_rotations()) # Unrotates board
+                # This adds the move to the moves list
+                # A move is stored as follows: ((square column, square row, former occupant), (other column, other row, other former occupant)... )
+                self.moves.append(tuple(map(lambda pc_change_data: (pc_change_data[0], pc_change_data[1], copied_state[pc_change_data[0]][pc_change_data[1]]), self.board_change_positions(oldstate))))
                 return (1, None)
     
             except KingCaptured as err: #(kick up to controller)
@@ -194,18 +228,19 @@ class Board:
         else: # This should get documented eventually
             return (0, None)
 
-    def undo(self): # Todo: Document
-        """Undoes the last move. Returns 1 if successful and 0 otherwise"""
-        try:
-            moved_piece_data, captured_piece_data = self.moves.pop(-1)
-            if self.state[moved_piece_data[0]][moved_piece_data[1]]:
-                self.state[moved_piece_data[0]][moved_piece_data[1]].kill()
-            if self.state[captured_piece_data[0]][captured_piece_data[1]]:
-                self.state[captured_piece_data[0]][captured_piece_data[1]].kill()
-            self.state[moved_piece_data[0]][moved_piece_data[1]] = moved_piece_data[2]
-            self.state[captured_piece_data[0]][captured_piece_data[1]] = captured_piece_data[2]
+    def undo(self):
+        """
+        Undoes the last move
+        returns:
+            1 if the undo is successful and 0 otherwise"""
+        if self.moves:
+            move_data = self.moves.pop(-1)
+            for data in move_data:
+                if self.state[data[0]][data[1]]:
+                    self.state[data[0]][data[1]].kill()
+                self.state[data[0]][data[1]] = data[2]
             return 1
-        except IndexError:
+        else:
             print('No moves to undo')
             return 0
 
@@ -249,7 +284,12 @@ class square(pygame.sprite.Sprite):
         #self.rect.x or pos
 
     def render_piece(self, piece, piece_sprites):
-        '''Draws a piece in this square and scales it. Also adds it to piece_sprites''' #TODO Gives Piece a draw method that takes a position and a scale, have this method call it; board should have a drawboard method
+        """
+        Draws a given piece in this square, scales it to the correct size,
+            and adds it to a sprite group
+        args:
+            piece (Piece): Piece to be drawn
+            piece_sprites (Sprite Group): Sprite Group that piece gets added to""" #TODO board should have a drawboard method
         piece.draw_piece(self.rect.left, self.rect.top, int(self.r), piece_sprites)
 
 
@@ -258,6 +298,7 @@ class square(pygame.sprite.Sprite):
         self.image.fill(BLUEGRAY)
 
     def unhighlight(self): # Todo: Implement
+        """Unhighlights this square by removing highlight modifications"""
         self.image.fill(self.color) #Unhighlights duh
 
     def dot_highlight(self): # Todo: Implement
@@ -266,6 +307,7 @@ class square(pygame.sprite.Sprite):
         #print("dot highlighted") 
 
     def target_highlight(self):
+        """Highlights this square by putting triangles in the corners"""
         for tri in self.target_coordinates:
             pygame.draw.polygon(self.image, BLUEGRAY, tri)
 
@@ -281,8 +323,31 @@ BLUE = (0, 0, 230)
 TAN = (239, 217, 183)
 DARKTAN = (180, 136, 102)
 BLUEGRAY = (20, 30, 50)
-board_cols = 8
-board_rows = 8
+
+mode = 0
+while not (mode in [1, 2, 3]):
+    try:
+        mode = int(input("Which gamemode do you want? (1, 2 or 3) "))
+    except:
+        pass
+
+###---------------Board size settings---------------###
+    
+board_cols = 0
+
+if mode == 1:
+    board_cols = 8
+    board_rows = 8
+elif mode == 2:
+    board_cols = 4
+    board_rows = 8
+elif mode == 3:
+    board_cols = 8
+    board_rows = 8
+
+
+###---------------End of Section---------------###
+
 width = round(600/board_cols)*board_cols # Makes the screen size mimic the board size more closely
 height = round(600/board_rows)*board_rows
 
@@ -300,15 +365,20 @@ sprites = pygame.sprite.Group()
 piece_sprites = pygame.sprite.Group()
 GUI_sprites = pygame.sprite.Group()
 curboard = Board(screen, board_cols, board_rows, sprites)
-game_controller = Controller(curboard, None, GUI_sprites, piece_sprites)
 
+###---------------Controller settings---------------###
 
-#curboard.create_piece(piece, col, row, team, direction, sprite_group)
+if mode == 1:
+    game_controller = Controller(curboard, None, GUI_sprites, piece_sprites)
+elif mode == 2:
+    game_controller = DegenerateController(curboard, None, GUI_sprites, piece_sprites)
+elif mode == 3:
+    game_controller = ChasmController(curboard, None, GUI_sprites, piece_sprites)
 
+###---------------End of Section---------------###
 
 while not closed: # Todo: Implement or refactor
     if game:
-        #rook_image = pygame.image.load(r'C:\Users\user\Pictures\.jpg')
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 closed = True
@@ -341,4 +411,5 @@ pygame.quit()
 ### Create documentation for everything
 ### Document
 ### Merge Board Method
-### Revamp undo
+### Fix degenerate castling
+### Image example code: pygame.image.load(r'C:\Users\user\Pictures\.jpg')

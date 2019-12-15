@@ -1,9 +1,13 @@
 from abc import ABC, abstractmethod #abstract base classes
-from Pieces import *
+from Generic_Piece import *
 import pygame
 from math import *
 
-### This file contains the code for the weird chess pieces ###
+"""
+This file contains the code for the weird chess pieces.
+Movement components are added at the beginning of the class
+    by modifying the movement_components variable
+"""
 
 class Baron(Piece):
     images = {1:pygame.image.load('baron.png'), 2: pygame.image.load('black_baron.png')}
@@ -16,7 +20,6 @@ class Baron(Piece):
     def __init__(self, screen, team, direction): #Needs to be implemented later
         Piece.__init__(self, screen, team, direction) # Direction not implemented
         self.attributes["castle"] = True
-
 
 class Baroness(Piece):
     images = {1:pygame.image.load('baroness.png'), 2: pygame.image.load('black_baroness.png')}
