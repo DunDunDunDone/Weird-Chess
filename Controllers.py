@@ -42,6 +42,30 @@ class TurnMarker(pygame.sprite.Sprite):
     def update(self):
         pass
 
+# Controller metaclass API
+# Controller(inputs)
+# Inputs:
+# piece_modifiers: list of functions
+#       The are executed in order on every new piece. They should handle any piece type and then modify the piece or return a new piece.    
+#       Because of the potential for an entirely new piece, create_piece should make a basic piece, the use the following loop
+#           for mod in piece_modifiers: new_piece = mod(new_piece)
+#           return new_piece
+# end turn functions?
+# custom? (bool) points (int)
+# bug_house (bool)
+# crazy_house (bool)
+# end_of_turn_func (func)
+# start (list of piece inputs)
+# board creation inputs? River???
+# Win condition
+# Draw move number
+# Todo: Game, board, and controller responsibilities
+
+# Board: The board is basically the state of the game. It holds both the pieces and the squares so it can be rendered.
+#           Includes helper methods for rotation and such
+# Controller: How a Game interacts with the board. All game logic is either here or in the pieces. Oblivious to graphics
+# Game: Knows all the settings for the game including graphics
+
 class Controller: # Todo: Make controller inherit
     """The controller converts screen events to moves on the board"""
     """Keeps track of turns and win conditions. Handles clicks and events"""
@@ -82,20 +106,23 @@ class Controller: # Todo: Make controller inherit
                                 else:
                                     self.board.squares[move[0]][move[1]].dot_highlight()
                     elif self.selected_piece == piece:
-                        self.selected_piece = None
-                        self.selected_pos = None
+                        self.reset_selection()
                     else: 
                         if self.selected_piece.team == self.turn%2+1:
                             success, err = self.board.move_piece(self.selected_pos[0], self.selected_pos[1], sqrx, sqry)
                             self.turn += success
                             self.board.render_board()
-                            self.selected_piece = None
-                            self.selected_pos = None
+                            self.reset_selection()
                             self.turn_marker.change_turn((self.turn)%2+1)
                         else:
                             print("Illegal Move")
-                            self.selected_piece = None
-                            self.selected_pos = None
+                            self.reset_selection()
+
+    def reset_selection(self):
+        self.selected_piece = None
+        self.selected_pos = None
+
+    #def hightlight_piece(self..... Factoring out code
 
     def set_up(self, piece_sprites):
         """

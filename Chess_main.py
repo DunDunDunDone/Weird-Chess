@@ -217,12 +217,15 @@ class Board:
             except KingCaptured as err: #(kick up to controller)
                 self.state = err.state
                 self.state = self.rotate_board(4-selected_piece.get_rotations()) # Unrotates board
+                self.moves.append(tuple(map(lambda pc_change_data: (pc_change_data[0], pc_change_data[1], copied_state[pc_change_data[0]][pc_change_data[1]]), self.board_change_positions(oldstate))))
                 return (1, err)
                 
-            except PromotionError as err: # Todo: Change to allow promotions other than queens (kick up to controller)
+            except PromotionError as err: # Todo: Change to allow promotions other than queens (kick up to game)
+                
                 self.state = err.state
                 self.create_piece(Queen, new_pos[0], new_pos[1], err.piece.team, err.piece.direction, piece_sprites) # Todo: Change Sprite_group to class sprite_group don't hardcode
                 self.state = self.rotate_board(4-selected_piece.get_rotations()) # Unrotates board
+                self.moves.append(tuple(map(lambda pc_change_data: (pc_change_data[0], pc_change_data[1], copied_state[pc_change_data[0]][pc_change_data[1]]), self.board_change_positions(oldstate))))
                 return (1, err)
 
         else: # This should get documented eventually
@@ -323,13 +326,41 @@ BLUE = (0, 0, 230)
 TAN = (239, 217, 183)
 DARKTAN = (180, 136, 102)
 BLUEGRAY = (20, 30, 50)
+### The following code will end up being refactored into a "Game" class
+# Inputs:
+# Initial Board: tuple of elts of the form (type, team, row, col)
+# x_pos_1, y_pos_1: Position for the game's upper left on the screen
+# x_pos_2, y_pos_2: Position for the game's lower right on the screen
+# board_rows, board_cols: Board dimensions
+# Number of teams: Ya know, the number of teams!
+# (Rules)
+# piece_modifiers: List of funcrtions that are all executed on each new piece
+#   They should take a piece and return a piece. The returned piece will be the new piece
+# end_of_turn_functions: List of functions that take in the board state and
+#   turn num as inputs and output a board state which becomes the new board state.
+# custom (str): Whether or not people put out their own pieces. The string should be
+#   "alt" or "lin" for alternating or non-alternating piece placement
+# points (tuple): A tuple containing how many points each player gets (in pieces
+# bug_house (bool): Bug house game?
+# crazy_house (bool): Crazy house game?
+# river (int=0): 0 for no river, otherwise it creates a river of that length (rounded down if it's not symmetric)
+# win_condition (callable class [cuz 3-check]): Takes in board state and returns 0 for no victor, team for a victor
+# draw_move_number (int=50): Moves with just king before draw
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
 
 mode = 0
-while not (mode in [1, 2, 3]):
-    try:
-        mode = int(input("Which gamemode do you want? (1, 2 or 3) "))
-    except:
-        pass
+while not (mode in ["1", "2", "3"]):
+    mode = input("Which gamemode do you want? (1, 2 or 3) ")
+mode = int(mode)
 
 ###---------------Board size settings---------------###
     
@@ -411,5 +442,4 @@ pygame.quit()
 ### Create documentation for everything
 ### Document
 ### Merge Board Method
-### Fix degenerate castling
 ### Image example code: pygame.image.load(r'C:\Users\user\Pictures\.jpg')

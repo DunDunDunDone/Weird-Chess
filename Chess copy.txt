@@ -22,3 +22,5 @@ Spearman (Three foward, two sideways, one back)
 Scouts (Up to Three squares in any direction, pulls the piece behind it)
 Earl (one square to move, two to capture)
 Peasant (One square forward. Captures diagonally backwards, diagonal 2 forward first turn)
+Chariot??
+Marshall??
