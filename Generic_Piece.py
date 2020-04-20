@@ -4,7 +4,7 @@ from collections.abc import MutableMapping
 import pygame
 from math import *
 from functools import reduce
-from operator import add
+from operator import or_
 from copy import copy
 
 class PromotionError(Exception):
@@ -89,7 +89,7 @@ class Piece(pygame.sprite.Sprite, ABC): #
             turn (int): Turn of the game
         returns:
             The list of legal moves (where a move is a tuple of the form (col, row))"""
-        return reduce(add, [comp(state, x, y, self) for comp in self.movement_components], [])
+        return reduce(or_, [comp(state, x, y, self) for comp in self.movement_components], set())
                 
     def __str__(self):
         """Returns the piece name"""
@@ -116,7 +116,8 @@ class Piece(pygame.sprite.Sprite, ABC): #
             newcol, newrow (int): The new column and row of the piece
 
         returns:
-            2D array with the new board state
+            (Turn movement [0 means same player moves again, 2 means skip a player, 1 is normal],
+                2D array with the new board state)
 
         raises:
             IllegalMove: Raised when an illegal move is attempted"""
@@ -129,9 +130,9 @@ class Piece(pygame.sprite.Sprite, ABC): #
             captured_piece = new_state[newcol][newrow]
             new_state[newcol][newrow] = self
             if captured_piece:
-                return captured_piece.get_captured(new_state, newcol, newrow)
+                return (1, captured_piece.get_captured(new_state, newcol, newrow))
             else:
-                return new_state
+                return (1, new_state)
 
     def board_deep_copy(self, state): # This type of thing should be removed
         """Returns a deep copy of state
@@ -200,26 +201,30 @@ def board_iterator(startx, starty, limx, limy, dx, dy, state):
         # Checks if it's less than (or greater than) the limits and in the board
         yield ((curx, cury), state[curx][cury])
         curx += dx
-        cury += dy
-    
+        cury += dy   
 
 class MovementComponent:
-    def __init__(self, attack_range, attack_mode):
+    def __init__(self, attack_range, attack_mode, max_jumps = 0):
         """
         Component for pieces. It returns valid moves for a certain type of movement (Rook up, bishop down, etc.)
             attack_range (int or inf): How many squares the piece can move (inclusive). Should be at least 1
-            attack_mode (0, 1, or 2): The mode of the piece. 0 means it can both capture and make a non-capturing move, 1 means it must capture, 2 means it cannot capture"""
+            attack_mode (0, 1, or 2): The mode of the piece. 0 means it can both capture and make a non-capturing move, 1 means it must capture, 2 means it cannot capture
+            exact_jumps (int or inf): The maximum number of pieces (friendly or unfriendly) this piece can jump over"""
         self.attack_mode = attack_mode
         self.attack_range = attack_range
+        self.max_jumps = max_jumps
 
     @abstractmethod
     def __call__(self, state, x, y, piece):
         """
-        Returns this movement components legal moves
+        Returns this movement component's legal moves
         args:
             state (board): Board state the moves should be checked with
             x, y (ints): Position of the piece
-            piece (piece): The piece object that the moves might be made by"""
+            piece (piece): The piece object that the moves might be made by
+
+        returns:
+            set of legal moves"""
         pass
 
     def convert_state_to_teams(self, state):
@@ -231,147 +236,176 @@ class MovementComponent:
             2D array of ints"""
         return [[(0 if (not pc) else pc.team) for pc in col] for col in state]
 
+class CompoundComponent(MovementComponent):
+    def __init__(self, first_component, second_component, max_jumps = 0):
+        """
+        Component for combining components. It returns valid moves for a certain combinations of movement
+            first_component (MovementComponent): The first component to be used
+            second_component (MovementComponent): The second component to be used"""
+        MovementComponent.__init__(self, None, None)
+        self.first_component = first_component
+        self.second_component = second_component
+
 ### All the following classes follow the above design pattern and
-###     represent different types of movement
+###     represent different types/combinations of movement
 
 class RookUp(MovementComponent):
-    def __init__(self, attack_range, attack_mode):
-        MovementComponent.__init__(self, attack_range, attack_mode)
+    def __init__(self, attack_range, attack_mode, max_jumps = 0):
+        MovementComponent.__init__(self, attack_range, attack_mode, max_jumps)
     
-    def __call__(self, state, x, y, piece): # Todo: Refactor
+    def __call__(self, state, x, y, piece): # Todo: Refactor Loop since it's the same for all of them
         """
-        Returns the upwards orthogonal moves
-        args:
-            state (2D array): The state of the board where the piece is moving on
-            x, y (ints): Positions of the piece
-        returns:
-            A list of tuples representing legal moves"""
+        Returns the upwards orthogonal moves"""
         state = self.convert_state_to_teams(state)
-        legal_moves = []
+        legal_moves = set()
+        jumps_left = self.max_jumps
         for pos, piece_team in board_iterator(x, y-1, x, y-self.attack_range, 0, -1, state):
             if piece_team: # This ends the movement (since rook movement can't jump) so we break no matter what
                 if piece_team != piece.team: # Checks to make sure the piece is on a different team
                     if self.attack_mode != 2: # If the piece cannot capture, this code won't be run
-                        legal_moves.append(pos)
-                break
+                        legal_moves.add(pos)
+                if jumps_left:
+                    jumps_left -= 1
+                else:
+                    break
             else:
                 if self.attack_mode != 1: # If the piece must capture (attack_mode = 1), this code won't be run
-                    legal_moves.append(pos)
+                    legal_moves.add(pos)
         return legal_moves
 
 class RookDown(MovementComponent):
-    def __init__(self, attack_range, attack_mode):
-        MovementComponent.__init__(self, attack_range, attack_mode)
+    def __init__(self, attack_range, attack_mode, max_jumps = 0):
+        MovementComponent.__init__(self, attack_range, attack_mode, max_jumps)
     
     def __call__(self, state, x, y, piece):
         """
-        Returns the downwards orthogonal moves
-        args:
-            state (2D array): The state of the board where the piece is moving on
-            x, y (ints): Positions of the piece
-            piece (Piece): The piece object so the component knows attributes about the piece (for castling and the like)
-        returns:
-            A list of tuples representing legal moves"""
+        Returns the downwards orthogonal moves"""
         state = self.convert_state_to_teams(state)
-        legal_moves = []
+        legal_moves = set()
+        jumps_left = self.max_jumps
         for pos, piece_team in board_iterator(x, y+1, x, y+self.attack_range, 0, 1, state):
             if piece_team: # This ends the movement (since rook movement can't jump) so we break no matter what
                 if piece_team != piece.team: # Checks to make sure the piece is on a different team
                     if self.attack_mode != 2: # If the piece cannot capture, this code won't be run
-                        legal_moves.append(pos)
-                break
+                        legal_moves.add(pos)
+                if jumps_left:
+                    jumps_left -= 1
+                else:
+                    break
             else:
                 if self.attack_mode != 1: # If the piece must capture (attack_mode = 1), this code won't be run
-                    legal_moves.append(pos)
+                    legal_moves.add(pos)
         return legal_moves
 
 class RookLeftRight(MovementComponent): # TODO rename and redocument; Make general board iterator for diagonal and horizontal that takes (start, end, and step)
-    def __init__(self, attack_range, attack_mode):
-        MovementComponent.__init__(self, attack_range, attack_mode)
+    def __init__(self, attack_range, attack_mode, max_jumps = 0):
+        MovementComponent.__init__(self, attack_range, attack_mode, max_jumps)
     
     def __call__(self, state, x, y, piece):
-        """ # Todo: Implement or refactor
-        Returns the orthogonal moves in the left and right directions
-        args:
-            state (2D array): The state of the board where the piece is moving on
-            x, y (ints): Positions of the piece
-            piece (Piece): The piece object so the component knows attributes about the piece (for castling and the like)
-        returns:
-            A list of tuples representing legal moves"""
+        """
+        Returns the orthogonal moves in the left and right directions"""
         state = self.convert_state_to_teams(state)
-        legal_moves = []
+        legal_moves = set()
+        jumps_left = self.max_jumps
         for pos, piece_team in board_iterator(x+1, y, x+self.attack_range, y, 1, 0, state): # Right movement code #Todo: x, y -> col, row
             if piece_team: # This ends the movement (since rook movement can't jump) so we break no matter what
                 if piece_team != piece.team: # Checks to make sure the piece is on a different team
                     if self.attack_mode != 2: # If the piece cannot capture, this code won't be run
-                        legal_moves.append(pos)
-                break
+                        legal_moves.add(pos)
+                if jumps_left:
+                    jumps_left -= 1
+                else:
+                    break
             else:
                 if self.attack_mode != 1: # If the piece must capture (attack_mode = 1), this code won't be run
-                    legal_moves.append(pos)
+                    legal_moves.add(pos)
+        jumps_left = self.max_jumps
         for pos, piece_team in board_iterator(x-1, y, x-self.attack_range, y, -1, 0, state): # Right movement code #Todo: x, y -> col, row
             if piece_team: # This ends the movement (since rook movement can't jump) so we break no matter what
                 if piece_team != piece.team: # Checks to make sure the piece is on a different team
                     if self.attack_mode != 2: # If the piece cannot capture, this code won't be run
-                        legal_moves.append(pos)
-                break
+                        legal_moves.add(pos)
+                if jumps_left:
+                    jumps_left -= 1
+                else:
+                    break
             else:
                 if self.attack_mode != 1: # If the piece must capture (attack_mode = 1), this code won't be run
-                    legal_moves.append(pos)
+                    legal_moves.add(pos)
         return legal_moves
 
 class DiagonalUp(MovementComponent):
-    def __init__(self, attack_range, attack_mode):
-        MovementComponent.__init__(self, attack_range, attack_mode)
+    def __init__(self, attack_range, attack_mode, max_jumps = 0):
+        MovementComponent.__init__(self, attack_range, attack_mode, max_jumps)
 
     def __call__(self, state, x, y, piece):
-        legal_moves = []
+        """
+        Returns the upwards diagonal moves"""
+        legal_moves = set()
+        jumps_left = self.max_jumps
         state = self.convert_state_to_teams(state)
         for pos, piece_team in board_iterator(x+1, y-1, x+self.attack_range, y-self.attack_range, 1, -1, state): # Right movement code #Todo: x, y -> col, row
             if piece_team: # This ends the movement (since bishop's can't jump) so we break no matter what
                 if piece_team != piece.team: # Checks to make sure the piece is on a different team
                     if self.attack_mode != 2: # If the piece cannot capture, this code won't be run
-                        legal_moves.append(pos)
-                break
+                        legal_moves.add(pos)
+                if jumps_left:
+                    jumps_left -= 1
+                else:
+                    break
             else:
                 if self.attack_mode != 1: # If the piece must capture (attack_mode = 1), this code won't be run
-                    legal_moves.append(pos)
+                    legal_moves.add(pos)
+        jumps_left = self.max_jumps
         for pos, piece_team in board_iterator(x-1, y-1, x-self.attack_range, y-self.attack_range, -1, -1, state): # Right movement code #Todo: x, y -> col, row
             if piece_team: # This ends the movement (since bishop's can't jump) so we break no matter what
                 if piece_team != piece.team: # Checks to make sure the piece is on a different team
                     if self.attack_mode != 2: # If the piece cannot capture, this code won't be run
-                        legal_moves.append(pos)
-                break
+                        legal_moves.add(pos)
+                if jumps_left:
+                    jumps_left -= 1
+                else:
+                    break
             else:
                 if self.attack_mode != 1: # If the piece must capture (attack_mode = 1), this code won't be run
-                    legal_moves.append(pos)
+                    legal_moves.add(pos)
         return legal_moves
         
 class DiagonalDown(MovementComponent):
-    def __init__(self, attack_range, attack_mode):
-        MovementComponent.__init__(self, attack_range, attack_mode)
-		
+    def __init__(self, attack_range, attack_mode, max_jumps = 0):
+        MovementComponent.__init__(self, attack_range, attack_mode, max_jumps)
+        
     def __call__(self, state, x, y, piece):
-        legal_moves = []
+        """
+        Returns the downwards diagonal moves"""
+        legal_moves = set()
+        jumps_left = self.max_jumps
         state = self.convert_state_to_teams(state)
         for pos, piece_team in board_iterator(x+1, y+1, x+self.attack_range, y+self.attack_range, 1, 1, state): # Right movement code #Todo: x, y -> col, row
             if piece_team: # This ends the movement (since bishop's can't jump) so we break no matter what
                 if piece_team != piece.team: # Checks to make sure the piece is on a different team
                     if self.attack_mode != 2: # If the piece cannot capture, this code won't be run
-                        legal_moves.append(pos)
-                break
+                        legal_moves.add(pos)
+                if jumps_left:
+                    jumps_left -= 1
+                else:
+                    break
             else:
                 if self.attack_mode != 1: # If the piece must capture (attack_mode = 1), this code won't be run
-                    legal_moves.append(pos)
+                    legal_moves.add(pos)
+        jumps_left = self.max_jumps
         for pos, piece_team in board_iterator(x-1, y+1, x-self.attack_range, y+self.attack_range, -1, 1, state): # Right movement code #Todo: x, y -> col, row
             if piece_team: # This ends the movement (since bishop's can't jump) so we break no matter what
                 if piece_team != piece.team: # Checks to make sure the piece is on a different team
                     if self.attack_mode != 2: # If the piece cannot capture, this code won't be run
-                        legal_moves.append(pos)
-                break
+                        legal_moves.add(pos)
+                if jumps_left:
+                    jumps_left -= 1
+                else:
+                    break
             else:
                 if self.attack_mode != 1: # If the piece must capture (attack_mode = 1), this code won't be run
-                    legal_moves.append(pos)
+                    legal_moves.add(pos)
         return legal_moves
         
 class KnightMove(MovementComponent):
@@ -380,13 +414,15 @@ class KnightMove(MovementComponent):
     def __init__(self):
         MovementComponent.__init__(self, None, None)
 
-    def __call__(self, state, x, y, piece):
-        legal_moves = []
+    def __call__(self, state, x, y, piece, max_jumps = 0):
+        """
+        Returns the knight moves"""
+        legal_moves = set()
         state = self.convert_state_to_teams(state)
         for delta in self.knight_disp:
             if 0 <= x+delta[0] < len(state) and 0 <= y+delta[1] < len(state[0]): # Checks if it's a legal square 
                 if not (state[x+delta[0]][y+delta[1]] == piece.team):
-                    legal_moves.append((x+delta[0], y+delta[1]))
+                    legal_moves.add((x+delta[0], y+delta[1]))
         return legal_moves
 
 class Charge(MovementComponent):
@@ -400,7 +436,7 @@ class Charge(MovementComponent):
         if y == self.charge_row:
             return self.helper_component(state, x, y, piece)
         else:
-            return []
+            return set()
 
 class Castle(MovementComponent):
 
@@ -408,34 +444,89 @@ class Castle(MovementComponent):
         MovementComponent.__init__(self, None, None)
 
     def __call__(self, state, x, y, piece): # Todo Check for check
-        legal_moves = [] # Bug: Castling with adjacent piees
+        """
+        Returns legal castling options"""
+        legal_moves = set() # Bug: Castling with adjacent piees
         if not piece.attributes["castle"]:
-            return []
+            return set()
         if x != len(state)-1:
             for cur_piece in (col[y] for col in state[x+1:]): # Castle right code
                 if cur_piece:
                     if piece.team == cur_piece.team and cur_piece.attributes["castle"]:
-                        legal_moves.append((x+2, y))
+                        legal_moves.add((x+2, y))
                     break
         if x != 0:
             for cur_piece in (col[y] for col in state[x-1::-1]): # Castle left code
                 if cur_piece:
                     if piece.team == cur_piece.team and cur_piece.attributes["castle"]:
-                        legal_moves.append((x-2, y))
+                        legal_moves.add((x-2, y))
                     break
         return legal_moves
 
-class DiaginalUpExact(MovementComponent): # Change to be more general #Todo
-    elephant_disp = ((-2, 2), (2, 2)) # Holds the elephant displacement
-
-    def __init__(self):
-        MovementComponent.__init__(self, None, None)
+class Intersection(CompoundComponent):
+    def __init__(self, *comps):
+        """
+        Only returns the moves that both components return
+            Note that this must take at least two comps"""
+        assert len(comps) > 1
+        if len(comps) == 2:
+            CompoundComponent.__init__(self, comps[0], comps[1])
+        else:
+            CompoundComponent.__init__(self, comps[0], Intersection(*comps[1:]))
 
     def __call__(self, state, x, y, piece):
-        legal_moves = []
-        state = self.convert_state_to_teams(state)
-        for delta in self.knight_disp:
-            if 0 <= x+delta[0] < len(state) and 0 <= y+delta[1] < len(state[0]): # Checks if it's a legal square 
-                if not (state[x+delta[0]][y+delta[1]] == piece.team):
-                    legal_moves.append((x+delta[0], y+delta[1]))
-        return legal_moves
+        return self.first_component(state, x, y, piece) & self.second_component(state, x, y, piece)
+
+class Union(CompoundComponent): #Change intersection and composition to match
+    def __init__(self, *comps):
+        """
+        Returns moves that either component returns
+            Note that this must take at least two comps"""
+        assert len(comps) > 1
+        if len(comps) == 2:
+            CompoundComponent.__init__(self, comps[0], comps[1])
+        else:
+            CompoundComponent.__init__(self, comps[0], Union(*comps[1:]))
+
+    def __call__(self, state, x, y, piece):
+        return self.first_component(state, x, y, piece) | self.second_component(state, x, y, piece)
+
+class Subtraction(CompoundComponent):
+    def __init__(self, *comps):
+        """
+        Returns moves that the first component returns and the second, third, fourth... don't
+            Note that this must take at least two comps"""
+        assert len(comps) > 1
+        if len(comps) == 2:
+            CompoundComponent.__init__(self, comps[0], comps[1])
+        else:
+            # Yes, union is correct. It makes it so ALL of the non-first components are subtracted
+            CompoundComponent.__init__(self, comps[0], Union(*comps[1:]))
+
+    def __call__(self, state, x, y, piece):
+        return self.first_component(state, x, y, piece) - self.second_component(state, x, y, piece)
+
+class Composition(CompoundComponent):
+    def __init__(self, first_component, second_component):
+        """
+        Returns moves that the first component returns from each of the second component's moves from each of the third...
+            Note that this doesn't change the piece's state so castling and en passant might not work as intended
+            Does not return the piece's original square
+            Does not update the state after each move
+            Note that this must take at least two comps"""
+        
+        assert len(comps) > 1
+        if len(comps) == 2:
+            CompoundComponent.__init__(self, comps[0], comps[1])
+        else:
+            CompoundComponent.__init__(self, comps[0], Composition(*comps[1:]))
+
+
+
+    def __call__(self, state, x, y, piece):
+        legal_moves = set()
+        for move in self.second_component(state, x, y, piece):
+            legal_moves |= self.first_component(state, move[0], move[1], piece)
+
+
+

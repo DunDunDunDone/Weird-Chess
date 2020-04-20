@@ -62,7 +62,8 @@ class King(Piece):
             newcol, newrow (int): The new column and row of the piece
 
         returns:
-            2D array with the new board state
+            (Turn movement [0 means same player moves again, 2 means skip a player, 1 is normal],
+                2D array with the new board state)
 
         raises:
             IllegalMove: Raised when an illegal move is attempted"""
@@ -83,16 +84,16 @@ class King(Piece):
                         new_state[newcol][newrow] = self
                         new_state[newcol+delta][newrow] = piece
                         #print(new_state)
-                        return new_state
+                        return (1, new_state)
                     col_to_check -= delta
             else:
                 new_state[col][row] = None
                 captured_piece = new_state[newcol][newrow]
                 new_state[newcol][newrow] = self
                 if captured_piece:
-                    return captured_piece.get_captured(new_state, newcol, newrow)
+                    return (1, captured_piece.get_captured(new_state, newcol, newrow))
                 else:
-                    return new_state
+                    return (1, new_state)
 
 class Queen(Piece):
     images = {1:pygame.image.load('queen.png'), 2: pygame.image.load('black_queen.jpg')}
@@ -127,13 +128,6 @@ class Knight(Piece):
 class Pawn(Piece):
     images = {1:pygame.image.load('pawn.png'), 2: pygame.image.load('black_pawn.png')}
     movement_components = [DiagonalUp(1, 1), RookUp(1, 2), Charge(2, 2, 6)] # Todo: Change pawn to not be hardcoded
-    
-    def __init__(self, screen, team, direction):
-        Piece.__init__(self, screen, team, direction)
-
-    '''    def get_legal_moves(self, state, x, y, turn = None, last_move = None):
-        state = self.convert_state_to_teams(state)
-        if y == len(state[0])-2: # If the pawn is on the second rank (-2 because of indexing)...'''
 
     def make_move(self, state, col, row, newcol, newrow):
         """Moves a piece from col, row to newcol, newrow
@@ -147,7 +141,8 @@ class Pawn(Piece):
             newcol, newrow (int): The new column and row of the piece
 
         returns:
-            2D array with the new board state
+            (Turn movement [0 means same player moves again, 2 means skip a player, 1 is normal],
+                2D array with the new board state)
 
         raises:
             IllegalMove: Raised when an illegal move is attempted
@@ -168,8 +163,117 @@ class Pawn(Piece):
             else:
                 new_state[newcol][newrow] = self
                 if captured_piece:
-                    return captured_piece.get_captured(new_state, newcol, newrow)
+                    return (1, captured_piece.get_captured(new_state, newcol, newrow))
                 else:
-                    return new_state
+                    return (1, new_state)
 
+class Checker(Piece):
+    images = {1:pygame.image.load('queen.png'), 2: pygame.image.load('black_queen.jpg')}
+    movement_components = [Subtraction(DiagonalUp(2, 2, 1), DiagonalUp(2, 2, 0)), DiagonalUp(1, 2)]
 
+    def make_move(self, state, col, row, newcol, newrow): # Todo: Implement or refactor (Refactor in King too)
+        """Moves a piece from col, row to newcol, newrow
+
+        Note: Pieces with different movement behavior
+              from just capturing should reimplement this method   
+        
+        args:
+            state (2D array): The current state of the board
+            col, row (int): The current column and row of the piece
+            newcol, newrow (int): The new column and row of the piece
+
+        returns:
+            (Turn movement [0 means same player moves again, 2 means skip a player, 1 is normal],
+                2D array with the new board state)
+
+        raises:
+            IllegalMove: Raised when an illegal move is attempted"""
+        if not ((newcol, newrow) in self.get_legal_moves(state, col, row)):
+            raise IllegalMove(self)
+        else:
+            self.attributes["castle"] = False # Should be changed eventually
+            new_state = self.board_deep_copy(state)
+            new_state[col][row] = None
+            if newrow-row == -2:
+                if newcol-col == -2:
+                    captured_piece = new_state[newcol+1][newrow+1]
+                    new_state[newcol+1][newrow+1] = None
+                else:
+                    captured_piece = new_state[newcol-1][newrow+1]
+                    new_state[newcol-1][newrow+1] = None
+            else:
+                captured_piece = None
+            new_state[newcol][newrow] = self
+            if captured_piece:
+                try:
+                    x = (new_state[newcol+2][newrow+2] or not new_state[newcol+1][newrow+1])
+                except:
+                    x = True
+                try:
+                    y = (new_state[newcol-2][newrow+2] or not new_state[newcol-1][newrow+1])
+                except:
+                    y = True
+                if x and y:
+                    return (1, captured_piece.get_captured(new_state, newcol, newrow))
+                return (0, captured_piece.get_captured(new_state, newcol, newrow))
+            else:
+                return (1, new_state)
+    
+
+class Bishop(Piece):
+    images = {1:pygame.image.load('queen.png'), 2: pygame.image.load('black_queen.jpg')}
+    movement_components = [Subtraction(DiagonalUp(2, 2, 1), DiagonalUp(2, 2, 0)), DiagonalUp(1, 2)]
+
+    def make_move(self, state, col, row, newcol, newrow): # Todo: Implement or refactor (Refactor in King too)
+        """Moves a piece from col, row to newcol, newrow
+
+        Note: Pieces with different movement behavior
+              from just capturing should reimplement this method   
+        
+        args:
+            state (2D array): The current state of the board
+            col, row (int): The current column and row of the piece
+            newcol, newrow (int): The new column and row of the piece
+
+        returns:
+            (Turn movement [0 means same player moves again, 2 means skip a player, 1 is normal],
+                2D array with the new board state)
+
+        raises:
+            IllegalMove: Raised when an illegal move is attempted"""
+        if not ((newcol, newrow) in self.get_legal_moves(state, col, row)):
+            raise IllegalMove(self)
+        else:
+            self.attributes["castle"] = False # Should be changed eventually
+            new_state = self.board_deep_copy(state)
+            new_state[col][row] = None
+            if newrow-row == -2:
+                if newcol-col == -2:
+                    captured_piece = new_state[newcol+1][newrow+1]
+                    new_state[newcol+1][newrow+1] = None
+                else:
+                    captured_piece = new_state[newcol-1][newrow+1]
+                    new_state[newcol-1][newrow+1] = None
+            else:
+                captured_piece = None
+            new_state[newcol][newrow] = self
+            if captured_piece:
+                try:
+                    x = (new_state[newcol+2][newrow+2] or not new_state[newcol+1][newrow+1])
+                except:
+                    #print("x")
+                    x = True
+                try:
+                    y = (new_state[newcol-2][newrow+2] or not new_state[newcol-1][newrow+1])
+                    #print(new_state[newcol-2][newrow+2])
+                    #print(new_state[newcol-1][newrow+1])
+                except:
+                    #print("y")
+                    y = True
+                if x and y:
+                    #print(x)
+                    #print(y)
+                    return (1, captured_piece.get_captured(new_state, newcol, newrow))
+                return (0, captured_piece.get_captured(new_state, newcol, newrow))
+            else:
+                return (1, new_state)

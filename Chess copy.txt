@@ -18,7 +18,7 @@ Jester (Rotates)
 Miners and Checkers
 Chancellor (Rook forward, bishop backwards)
 Archbishop (IDK)
-Spearman (Three foward, two sideways, one back)
+Spearman (Three forward, two sideways, one back)
 Scouts (Up to Three squares in any direction, pulls the piece behind it)
 Earl (one square to move, two to capture)
 Peasant (One square forward. Captures diagonally backwards, diagonal 2 forward first turn)

@@ -21,6 +21,7 @@ class Board:
             cols, rows (int, int): number of columns and rows for the board
             sprintgroup (group): group for all the squares
         """
+        self.must_move = None #If a piece (like a checker Is in the middle of a multistage move, this will be equual to that piece
         self.moves = [] # This stores the move in the form ((Piece, col, row), (Captured Piece (or None), new col, new row))
         self.screen = screen
         self.state = [[None for i in range(rows)] for j in range(cols)]  # None for no piece, a piece object if there is
@@ -199,34 +200,40 @@ class Board:
             newcol, newrow (ints): New column and row for the piece
 
         returns:
-            1 if the move is legal and was made, 0 otherwise"""
+            1 if the move is legal and was made, 0 otherwise""" # Note: Illegal move checking should be moved to controller
         selected_piece = self.get_piece(col, row)
         initial_pos = self.rotate_coordinates((col, row), selected_piece.get_rotations()) # Rotates piece coordinates before checking if it's legal
         new_pos = self.rotate_coordinates((newcol, newrow), selected_piece.get_rotations()) # Change to newcol, newrow if possible Check before changing since I believe it ruins turn storing
-        if new_pos in selected_piece.get_legal_moves(self.rotate_board(selected_piece.get_rotations()), initial_pos[0], initial_pos[1]):
+        if (selected_piece == self.must_move or not self.must_move) and new_pos in selected_piece.get_legal_moves(self.rotate_board(selected_piece.get_rotations()), initial_pos[0], initial_pos[1]):
             try:
                 copied_state = [[copy(pc) for pc in col] for col in self.state] # Use deepcopy ??? Todo
                 oldstate = [[pc for pc in col] for col in self.state] # Can't use deepcopy
-                self.state = selected_piece.make_move(self.rotate_board(selected_piece.get_rotations()), initial_pos[0], initial_pos[1], new_pos[0], new_pos[1])
+                turn_delta, self.state = selected_piece.make_move(self.rotate_board(selected_piece.get_rotations()), initial_pos[0], initial_pos[1], new_pos[0], new_pos[1])
+                if not turn_delta:
+                    self.must_move = selected_piece
+                else:
+                    self.must_move = None
                 self.state = self.rotate_board(4-selected_piece.get_rotations()) # Unrotates board
                 # This adds the move to the moves list
                 # A move is stored as follows: ((square column, square row, former occupant), (other column, other row, other former occupant)... )
-                self.moves.append(tuple(map(lambda pc_change_data: (pc_change_data[0], pc_change_data[1], copied_state[pc_change_data[0]][pc_change_data[1]]), self.board_change_positions(oldstate))))
-                return (1, None)
+                if turn_delta:
+                    self.moves.append(tuple(map(lambda pc_change_data: (pc_change_data[0], pc_change_data[1], copied_state[pc_change_data[0]][pc_change_data[1]]), self.board_change_positions(oldstate))))
+                return (turn_delta, None)
     
             except KingCaptured as err: #(kick up to controller)
+                self.must_move = None
                 self.state = err.state
                 self.state = self.rotate_board(4-selected_piece.get_rotations()) # Unrotates board
                 self.moves.append(tuple(map(lambda pc_change_data: (pc_change_data[0], pc_change_data[1], copied_state[pc_change_data[0]][pc_change_data[1]]), self.board_change_positions(oldstate))))
                 return (1, err)
                 
             except PromotionError as err: # Todo: Change to allow promotions other than queens (kick up to game)
-                
+                self.must_move = None
                 self.state = err.state
                 self.create_piece(Queen, new_pos[0], new_pos[1], err.piece.team, err.piece.direction, piece_sprites) # Todo: Change Sprite_group to class sprite_group don't hardcode
                 self.state = self.rotate_board(4-selected_piece.get_rotations()) # Unrotates board
                 self.moves.append(tuple(map(lambda pc_change_data: (pc_change_data[0], pc_change_data[1], copied_state[pc_change_data[0]][pc_change_data[1]]), self.board_change_positions(oldstate))))
-                return (1, err)
+                return (1, err) # (turn_delta, err)??
 
         else: # This should get documented eventually
             return (0, None)
@@ -237,15 +244,26 @@ class Board:
         returns:
             1 if the undo is successful and 0 otherwise"""
         if self.moves:
-            move_data = self.moves.pop(-1)
-            for data in move_data:
-                if self.state[data[0]][data[1]]:
-                    self.state[data[0]][data[1]].kill()
-                self.state[data[0]][data[1]] = data[2]
-            return 1
+            if self.must_move:
+                print("Can't undo a move in the middle of a move")
+            else:
+                move_data = self.moves.pop(-1)
+                for data in move_data:
+                    if self.state[data[0]][data[1]]:
+                        self.state[data[0]][data[1]].kill()
+                    self.state[data[0]][data[1]] = data[2]
+                return 1
         else:
             print('No moves to undo')
             return 0
+
+    def get_number_of_kings(self, team):
+        count = 0
+        for pc in self.board_iterator(self.state, False):
+            if type(pc) == King and pc.team == team:
+                count += 1
+        return count
+
 
 class square(pygame.sprite.Sprite):
     base_target_coordinates = (((0, 0), (0.20, 0), (0, 0.20)),
@@ -315,6 +333,7 @@ class square(pygame.sprite.Sprite):
             pygame.draw.polygon(self.image, BLUEGRAY, tri)
 
 
+
 BLACK = (0, 0, 0)
 LIGHTGRAY = (200, 200, 200)
 GRAY = (150, 150, 150)
@@ -348,14 +367,7 @@ BLUEGRAY = (20, 30, 50)
 # draw_move_number (int=50): Moves with just king before draw
 # 
 # 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
+
 
 mode = 0
 while not (mode in ["1", "2", "3"]):
@@ -393,19 +405,33 @@ screen.blit(background, (0, 0))
 closed = False
 game = True
 sprites = pygame.sprite.Group()
-piece_sprites = pygame.sprite.Group()
 GUI_sprites = pygame.sprite.Group()
-curboard = Board(screen, board_cols, board_rows, sprites)
+cur_board = Board(screen, board_cols, board_rows, sprites)
 
 ###---------------Controller settings---------------###
 
-if mode == 1:
+def two_player_king_end(board):
+    """
+    args:
+        board (Board): Board to be checked
+        """
+    pass#Todo: Implement
+
+mode_to_board_start = {1: (*tuple(((Pawn, col, 1, 2, "S") for col in range(8))), *tuple(((Pawn, col, 6, 1, "N") for col in range(8))), (Baron, 0, 0, 2, "S"), (Baron, 7, 0, 2, "S"), (Baroness, 2, 0, 2, "S"), (Baroness, 5, 0, 2, "S"), (Knight, 1, 0, 2, "S"), (Chancellor, 3, 0, 2, "S"), (King, 4, 0, 2, "S"), (Knight, 6, 0, 2, "S"), (Baron, 0, 7, 1, "N"), (Baron, 7, 7, 1, "N"), (Baroness, 2, 7, 1, "N"), (Baroness, 5, 7, 1, "N"), (Knight, 1, 7, 1, "N"), (Chancellor, 3, 7, 1, "N"), (King, 4, 7, 1, "N"), (Knight, 6, 7, 1, "N")),     
+                       2: (*tuple(((Pawn, col, 1, 2, "S") for col in range(4))), *tuple(((Pawn, col, 6, 1, "N") for col in range(4))), (Rook, 0, 0, 2, "S"), (Bishop, 2, 0, 2, "S"), (Knight, 1, 0, 2, "S"), (King, 3, 0, 2, "S"), (Rook, 3, 7, 1, "N"), (Bishop, 1, 7, 1, "N"), (Knight, 2, 7, 1, "N"), (King, 0, 7, 1, "N")),
+                       3: (*tuple(((Pawn, col, 1, 2, "S") for col in range(8))), *tuple(((Pawn, col, 6, 1, "N") for col in range(8))), (Baron, 0, 0, 2, "S"), (Baron, 7, 0, 2, "S"), (Baroness, 2, 0, 2, "S"), (Baroness, 5, 0, 2, "S"), (Knight, 1, 0, 2, "S"), (Chancellor, 3, 0, 2, "S"), (King, 4, 0, 2, "S"), (Knight, 6, 0, 2, "S"), (Baron, 0, 7, 1, "N"), (Baron, 7, 7, 1, "N"), (Baroness, 2, 7, 1, "N"), (Baroness, 5, 7, 1, "N"), (Knight, 1, 7, 1, "N"), (Chancellor, 3, 7, 1, "N"), (King, 4, 7, 1, "N"), (Knight, 6, 7, 1, "N"), (EmptySquare, 2, 3, 1, "N"), (EmptySquare, 2, 4, 1, "N"), (EmptySquare, 5, 3, 1, "N"), (EmptySquare, 5, 4, 1, "N"))}
+mode_to_settings = {1: (GUI_sprites, piece_sprites, cur_board, mode_to_board_start[1], 2, two_player_king_end),
+                    2: (GUI_sprites, piece_sprites, cur_board, mode_to_board_start[2], 2, two_player_king_end),
+                    3: (GUI_sprites, piece_sprites, cur_board, mode_to_board_start[3], 2, two_player_king_end)}
+
+"""if mode == 1:
     game_controller = Controller(curboard, None, GUI_sprites, piece_sprites)
 elif mode == 2:
     game_controller = DegenerateController(curboard, None, GUI_sprites, piece_sprites)
 elif mode == 3:
     game_controller = ChasmController(curboard, None, GUI_sprites, piece_sprites)
-
+"""
+game_controller = GenController(*mode_to_settings[mode])
 ###---------------End of Section---------------###
 
 while not closed: # Todo: Implement or refactor
@@ -435,11 +461,16 @@ pygame.quit()
 
 
 ### TODO make event loop seperate
+### Bug involving checker undo
+#@@ Generalize checker code
+### Clean up code (controllers)
 ### Check style with flake8
+### Change board_delta mechanics
 ### Immutable Pieces Literally doesn't make sense because castling
 ### Separate into more files
 ### Tetris chess
 ### Create documentation for everything
 ### Document
+### Component composition
 ### Merge Board Method
 ### Image example code: pygame.image.load(r'C:\Users\user\Pictures\.jpg')
